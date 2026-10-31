@@ -1,0 +1,11 @@
+{
+  "name": "sentits-quest-u4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/check.mjs",
+    "e2e": "python3 tests/e2e.py http://localhost:8000/ shots",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": { "three": "0.170.0" }
+}

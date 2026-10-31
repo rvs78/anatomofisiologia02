@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script>
+<style>html,body{margin:0;height:100%;background:#fff}#h{position:absolute;inset:0}.d{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#111;border:2px solid #ffd86b}.d.h{background:#999}.l{position:absolute;font:12px sans-serif;background:#fffc;padding:0 3px;transform:translate(8px,-50%)}</style></head>
+<body><div id="h"></div><script type="module">
+import { mountViewer, MODELS } from '../models.js';
+const q=new URLSearchParams(location.search), kind=q.get('k')||'ull';
+const h=document.getElementById('h'); const V=mountViewer(h,kind,{fitWidth:+(q.get('fw')||1),fitHeight:+(q.get('fh')||1)});
+await V.ready;
+if(q.get('az')){ const t=V.camera.position.clone(); }
+const els=(q.get('nl')?[]:MODELS[kind].targets).map(t=>{const d=document.createElement('div');d.className='d';const l=document.createElement('div');l.className='l';l.textContent=t.name;h.append(d,l);return [t,d,l]});
+V.onFrame(()=>els.forEach(([t,d,l])=>{const p=V.project(t.id);d.style.left=l.style.left=p.x+'px';d.style.top=l.style.top=p.y+'px';d.classList.toggle('h',p.hidden);}));
+window.V=V; window.done=true;
+</script></body></html>
