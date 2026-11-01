@@ -8,7 +8,8 @@ import {
   staticFile,
   useCurrentFrame,
 } from "remotion";
-import meta from "../public/meta.json";
+import metaCa from "../public/ca/meta.json";
+import metaEs from "../public/es/meta.json";
 
 // Tutorial «Com es juga» de Sentits Quest · U4. Les imatges són captures reals del joc
 // (tools/captures_video.py); les coordenades del cromo, el forat i el punt surten de meta.json.
@@ -24,8 +25,13 @@ const mid = (b: B) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const ease = Easing.bezier(0.16, 1, 0.3, 1);
 
-const chipA = mid(meta.chipA), slotA = mid(meta.slotA), chipC = mid(meta.chipC), dotC = mid(meta.dotC), slotC = mid(meta.slotC);
-const rot = meta.rot;
+type Lang = "ca" | "es";
+const TXT = {
+  ca: { c1: "Arrossega el cromo fins al seu forat", c2: "Arrossega el fons per girar el model", c3: "O toca el cromo i després el punt", card: "Còrnia",
+    score: <>Encert <span style={{ color: "#ffd86b" }}>+10</span> · Error −3 · Pista −5</>, streak: "Tres encerts seguits: +15" },
+  es: { c1: "Arrastra el cromo hasta su hueco", c2: "Arrastra el fondo para girar el modelo", c3: "O toca el cromo y después el punto", card: "Córnea",
+    score: <>Acierto <span style={{ color: "#ffd86b" }}>+10</span> · Error −3 · Pista −5</>, streak: "Tres aciertos seguidos: +15" },
+};
 
 /** Interpola un punt per trams [fotograma, x, y]. */
 const path = (f: number, keys: [number, number, number][]) => ({
@@ -104,8 +110,11 @@ const Caption: React.FC<{ from: number; to: number; n: string; text: string }> =
   );
 };
 
-export const ComEsJuga: React.FC = () => {
+export const ComEsJuga: React.FC<{ lang: Lang }> = ({ lang }) => {
   const f = useCurrentFrame();
+  const meta = lang === "es" ? metaEs : metaCa, T = TXT[lang];
+  const chipA = mid(meta.chipA), slotA = mid(meta.slotA), chipC = mid(meta.chipC), dotC = mid(meta.dotC), slotC = mid(meta.slotC);
+  const rot = meta.rot;
   // Escena 1 · arrossegar (0–150)
   const p1 = path(f, [[0, 1000, 640], [36, chipA.x, chipA.y], [48, chipA.x, chipA.y], [100, slotA.x, slotA.y], [125, slotA.x + 60, slotA.y + 50]]);
   // Escena 2 · girar (150–255)
@@ -119,28 +128,28 @@ export const ComEsJuga: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: C.cover, fontFamily: "Atkinson, sans-serif" }}>
       <style>{FONTS}</style>
-      <Shot src="a.png" from={-10} to={100} />
-      <Shot src="b.png" from={100} to={192} />
-      <Shot src="c.png" from={192} to={288} />
-      <Shot src="c_sel.png" from={288} to={334} />
-      <Shot src="d.png" from={334} />
-      {drag && <Card x={cur.x + 10} y={cur.y + 6} label="Còrnia" tilt={interpolate(f, [48, 74, 100], [-6, 4, 0], clamp)} />}
+      <Shot src={`${lang}/a.png`} from={-10} to={100} />
+      <Shot src={`${lang}/b.png`} from={100} to={192} />
+      <Shot src={`${lang}/c.png`} from={192} to={288} />
+      <Shot src={`${lang}/c_sel.png`} from={288} to={334} />
+      <Shot src={`${lang}/d.png`} from={334} />
+      {drag && <Card x={cur.x + 10} y={cur.y + 6} label={T.card} tilt={interpolate(f, [48, 74, 100], [-6, 4, 0], clamp)} />}
       {f >= 100 && f < 140 && <Ring at={slotA} from={100} color={C.ull} />}
       <Plus at={slotA} from={102} />
       {f >= 334 && f < 360 && <Ring at={dotC} from={334} color={C.ull} />}
       <Plus at={slotC} from={338} />
       <Cursor x={cur.x} y={cur.y} down={down} />
-      <Caption from={4} to={146} n="1" text="Arrossega el cromo fins al seu forat" />
-      <Caption from={150} to={252} n="2" text="Arrossega el fons per girar el model" />
-      <Caption from={255} to={385} n="3" text="O toca el cromo i després el punt" />
+      <Caption from={4} to={146} n="1" text={T.c1} />
+      <Caption from={150} to={252} n="2" text={T.c2} />
+      <Caption from={255} to={385} n="3" text={T.c3} />
       <AbsoluteFill style={{ background: `rgb(19 13 46 / ${0.88 * end})`, display: "grid", placeContent: "center", gap: 18, opacity: end }}>
-        <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 64, color: "#fff", textAlign: "center" }}>Encert <span style={{ color: C.foil }}>+10</span> · Error −3 · Pista −5</div>
-        <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 40, color: C.foil, textAlign: "center", scale: interpolate(f, [392, 402], [0.6, 1], { ...clamp, easing: ease }) }}>Tres encerts seguits: +15</div>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 64, color: "#fff", textAlign: "center" }}>{T.score}</div>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 40, color: C.foil, textAlign: "center", scale: interpolate(f, [392, 402], [0.6, 1], { ...clamp, easing: ease }) }}>{T.streak}</div>
       </AbsoluteFill>
     </AbsoluteFill>
   );
 };
 
 export const MyComposition: React.FC = () => (
-  <Composition id="ComEsJuga" component={ComEsJuga} durationInFrames={420} fps={30} width={1280} height={720} />
+  <Composition id="ComEsJuga" component={ComEsJuga} durationInFrames={420} fps={30} width={1280} height={720} defaultProps={{ lang: "ca" as Lang }} />
 );

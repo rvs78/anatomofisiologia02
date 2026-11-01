@@ -13,6 +13,8 @@
   "devDependencies": { "@types/react": "19.2.7", "typescript": "5.9.3" },
   "scripts": {
     "dev": "remotion studio",
-    "render": "remotion render ComEsJuga ../assets/tutorial.mp4 --codec=h264 --crf=28 --x264-preset=veryfast && remotion still ComEsJuga ../assets/tutorial.jpg --frame=130 --image-format=jpeg --jpeg-quality=80"
+    "render": "npm run render:ca && npm run render:es",
+    "render:ca": "remotion render ComEsJuga ../assets/tutorial.mp4 --props=./props-ca.json --codec=h264 --crf=28 --x264-preset=veryfast && remotion still ComEsJuga ../assets/tutorial.jpg --props=./props-ca.json --frame=130 --image-format=jpeg --jpeg-quality=80",
+    "render:es": "remotion render ComEsJuga ../assets/tutorial_es.mp4 --props=./props-es.json --codec=h264 --crf=28 --x264-preset=veryfast && remotion still ComEsJuga ../assets/tutorial_es.jpg --props=./props-es.json --frame=130 --image-format=jpeg --jpeg-quality=80"
   }
 }

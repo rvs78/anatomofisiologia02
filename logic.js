@@ -106,3 +106,28 @@ export function parseCloze(body) {
   if (last < body.length) parts.push(body.slice(last));
   return parts;
 }
+
+/* ---------- Nota de 1 a 10 ----------
+   Cada fase dona un encert entre 0 i 1:
+   · Models 3D: estructures / (estructures + errors + 0,5 × pistes)
+   · Test: encerts / 20
+   · Patologies: (encerts − 0,5 × encerts amb pista) / 30
+   Nota = 1 + 9 × (0,4 × models + 0,3 × test + 0,3 × patologies), amb un decimal.
+   Si la fase 3D no s'ha pogut fer (sense WebGL), test i patologies pesen el 50 % cadascun. */
+export const WEIGHTS = { models: 0.4, test: 0.3, cloze: 0.3 };
+const round1 = x => Math.round(x * 10) / 10;
+export const toGrade = acc => round1(1 + 9 * Math.min(1, Math.max(0, acc)));
+
+export function grade({ models, test, cloze }) {
+  const a1 = models.skipped || !models.items ? null : models.items / (models.items + models.errors + 0.5 * models.hints);
+  const a2 = test.total ? test.ok / test.total : 0;
+  const a3 = cloze.total ? Math.max(0, cloze.ok - 0.5 * cloze.hintedOk) / cloze.total : 0;
+  const w = a1 == null ? { models: 0, test: 0.5, cloze: 0.5 } : WEIGHTS;
+  const acc = (a1 ?? 0) * w.models + a2 * w.test + a3 * w.cloze;
+  const final = toGrade(acc);
+  return {
+    final, weights: w,
+    phases: { models: a1 == null ? null : toGrade(a1), test: toGrade(a2), cloze: toGrade(a3) },
+    level: final < 5 ? 'insuf' : final < 6 ? 'suf' : final < 7 ? 'be' : final < 9 ? 'notable' : 'excel',
+  };
+}

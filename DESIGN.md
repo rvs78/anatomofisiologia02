@@ -12,3 +12,7 @@ Mateix sistema que Vascular Quest (vegeu-ne el DESIGN.md): coberta indigo `#2219
 | Punt | imprès a la làmina | punt negre amb vora blanca; discontinu si queda a l'altra cara del model |
 | Fase 3 | mapa mut (escriure) | text amb buits i desplegables de 3 opcions |
 | Lliurament | correu al professor | PDF a la tasca de Google Classroom |
+| Idioma | català | català o castellà, triat a l'entrada amb banderes (senyera i bandera d'Espanya sense escut) |
+| Informe | punts | nota de 1 a 10 al bloc principal (coberta indigo, xifra daurada), nota per fase i fórmula |
+| Línies guia | rectes | en colze, acabades al centre exacte d'un punt de precisió (anell fosc amb centre blanc) |
+| Moviment 3D | — | entrada de càmera (1,3 s), il·luminació daurada de l'estructura encertada (1,1 s); res amb moviment reduït |

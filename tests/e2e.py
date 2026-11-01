@@ -6,7 +6,8 @@ from playwright.sync_api import sync_playwright
 
 URL = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8000/'
 OUT = sys.argv[2] if len(sys.argv) > 2 else 'shots'
-KEY = 'far-u4-sentits-v1'
+KEY = 'far-u4-sentits-v2'
+LANG = sys.argv[3] if len(sys.argv) > 3 else 'ca'
 os.makedirs(OUT, exist_ok=True)
 errors = []
 GL = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
@@ -54,14 +55,20 @@ with sync_playwright() as p:
     pg.on('console', lambda m: m.type == 'error' and '404' not in m.text and errors.append(m.text))
     pg.on('pageerror', lambda e: errors.append(str(e)))
     pg.goto(URL, wait_until='domcontentloaded'); pg.evaluate('localStorage.clear()'); pg.reload(wait_until='domcontentloaded')
-    pg.wait_for_timeout(500); pg.screenshot(path=f'{OUT}/0_entrada.png')
+    pg.wait_for_timeout(500)
+    # selector d'idioma: dues opcions amb bandera; canvia els textos
+    assert pg.locator('.langopt').count() == 2 and pg.locator('.langopt svg').count() == 2, 'dues banderes'
+    pg.click(f'.langopt[data-lang="{LANG}"]'); pg.wait_for_timeout(200)
+    assert pg.get_attribute(f'.langopt[data-lang="{LANG}"]', 'aria-checked') == 'true'
+    assert ('Correo del instituto' if LANG == 'es' else "Correu de l'institut") in pg.inner_text('#login')
+    pg.screenshot(path=f'{OUT}/0_entrada.png')
     pg.fill('input[name=email]', 'prova@isvh.cat'); pg.fill('input[name=password]', 'xx'); pg.click('#login .btn')
-    assert 'contrasenya' in pg.inner_text('#fb').lower()
+    assert ('contraseña' if LANG == 'es' else 'contrasenya') in pg.inner_text('#fb').lower()
     pg.fill('input[name=email]', 'prova@gmail.com'); pg.fill('input[name=password]', 'alumnesfar'); pg.click('#login .btn')
     assert 'isvh' in pg.inner_text('#fb').lower()
     pg.fill('input[name=email]', 'prova@isvh.cat'); pg.click('#login .btn')
     close_intro(pg, f'{OUT}/1_sobre.png')
-    names = pg.evaluate("import('./models.js').then(m => Object.fromEntries(Object.values(m.MODELS).flatMap(x => x.targets.map(t => [t.id, t.name]))))")
+    assert pg.evaluate('document.documentElement.lang') == LANG
 
     for lvl in range(6):
         pg.wait_for_selector('.chip'); pg.wait_for_timeout(1800)
@@ -71,24 +78,30 @@ with sync_playwright() as p:
         ids = pg.eval_on_selector_all('.slot[data-target]', 'els => els.map(e => e.dataset.target)')
         if lvl == 0:
             # error: el primer cromo a un forat que no és el seu
-            first = pg.get_attribute('.chip:not(.gone)', 'data-name')
-            wrong = next(i for i in ids if names[i] != first)
-            drag(pg, f'.chip[data-name="{first}"]', f'.slot[data-target="{wrong}"]')
+            first = pg.get_attribute('.chip:not(.gone)', 'data-id')
+            wrong = next(i for i in ids if i != first)
+            drag(pg, f'.chip[data-id="{first}"]', f'.slot[data-target="{wrong}"]')
             st = state(pg); assert st['errors'] == 1 and st['points'] == 0, 'error −3 amb mínim 0'
             # pista: seleccionar i demanar-la
-            pg.click(f'.chip[data-name="{first}"]'); pg.click('#hint'); pg.wait_for_timeout(300)
+            pg.click(f'.chip[data-id="{first}"]'); pg.click('#hint'); pg.wait_for_timeout(300)
             assert pg.locator('.slot.ask').count() == 1, 'la pista marca un forat'
-            pg.click(f'.chip[data-name="{first}"]')  # desselecciona
+            pg.click(f'.chip[data-id="{first}"]')  # desselecciona
+            # etiquetes: cap forat se solapa amb un altre
+            boxes = pg.eval_on_selector_all('.slot[data-target]', 'els => els.map(e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; })')
+            for a in range(len(boxes)):
+                for c in range(a + 1, len(boxes)):
+                    A, B = boxes[a], boxes[c]
+                    assert A[2] <= B[0] or B[2] <= A[0] or A[3] <= B[1] or B[3] <= A[1], 'forats solapats'
         for k, tid in enumerate(ids):
-            nm = names[tid]
+            nm = tid
             for attempt in range(3):  # en programari (sense GPU) un forat encara pot estar lliscant: es reintenta
-                if pg.locator(f'.chip[data-name="{nm}"]:not(.gone)').count() == 0:
+                if pg.locator(f'.chip[data-id="{nm}"]:not(.gone)').count() == 0:
                     break
                 if (k + attempt) % 2 == 0:
-                    drag(pg, f'.chip[data-name="{nm}"]', f'.slot[data-target="{tid}"]')
+                    drag(pg, f'.chip[data-id="{nm}"]', f'.slot[data-target="{tid}"]')
                 else:  # tocar el cromo i després el punt
-                    if pg.get_attribute(f'.chip[data-name="{nm}"]', 'aria-pressed') != 'true':
-                        pg.click(f'.chip[data-name="{nm}"]')
+                    if pg.get_attribute(f'.chip[data-id="{nm}"]', 'aria-pressed') != 'true':
+                        pg.click(f'.chip[data-id="{nm}"]')
                     x, y = center(pg, f'.dot[data-target="{tid}"]'); pg.mouse.click(x, y); settle(pg)
             st = state(pg); assert st['p1']['placed'][str(lvl)].get(tid), f'{nm} no enganxat'
             # el model es pot girar entre intents sense trencar res
@@ -108,7 +121,7 @@ with sync_playwright() as p:
     close_intro(pg, f'{OUT}/4_sobre_test.png')
     st = state(pg); order = st['p2']['order']
     assert len(order) == 20, '20 preguntes'
-    quiz = pg.evaluate("import('./data.js').then(m => m.QUIZ)")
+    quiz = pg.evaluate(f"import('./data.js').then(m => m.QUIZ.{LANG})")
     blocks = [quiz[i][4] for i in order]
     assert blocks.count('coord') == 4 and blocks.count('vista') == 8 and blocks.count('oida') == 8, 'barreja 4/8/8'
     for i in range(20):
@@ -124,16 +137,16 @@ with sync_playwright() as p:
         pg.click('#next')
     # Text de patologies
     close_intro(pg, f'{OUT}/6_sobre_patologies.png')
-    cloze = pg.evaluate("import('./logic.js').then(l => import('./data.js').then(d => d.CLOZE.map(c => l.parseCloze(c.body).filter(x => typeof x !== 'string').map(g => g.ok))))")
+    cloze = pg.evaluate(f"import('./logic.js').then(l => import('./data.js').then(d => d.CLOZE.{LANG}.map(c => l.parseCloze(c.body).filter(x => typeof x !== 'string').map(g => g.ok))))")
     for t, oks in enumerate(cloze):
         pg.wait_for_selector('select.gap')
         if t == 0:
             pg.click('#hint'); assert 'Pista' in pg.inner_text('#fb')
         for k, ok in enumerate(oks):
             key = f'{t}-{k}'
-            opts = pg.eval_on_selector(f'select.gap[data-key="{key}"]', 'e => [...e.options].slice(1).map(o => o.value)')
-            assert len(opts) == 3 and ok in opts
-            val = ok if (k + t) % 4 else next(o for o in opts if o != ok)
+            opts = pg.eval_on_selector(f'select.gap[data-key="{key}"]', 'e => [...e.options].slice(1).map(o => [o.value, o.textContent])')
+            assert len(opts) == 3 and ok in [o[1] for o in opts]
+            val = '0' if (k + t) % 4 else next(o[0] for o in opts if o[0] != '0')
             pg.select_option(f'select.gap[data-key="{key}"]', val); pg.wait_for_timeout(120)
         if t == 0:
             pg.wait_for_timeout(500); pg.screenshot(path=f'{OUT}/7_patologies.png')
@@ -145,8 +158,12 @@ with sync_playwright() as p:
     assert st['phase'] == 4 and st['end']
     txt = pg.inner_text('#report')
     assert '/20' in txt and '/30' in txt and 'Classroom' in txt
-    pg.emulate_media(media='print'); pg.wait_for_timeout(300); pg.screenshot(path=f'{OUT}/9_impressio.png', full_page=True); pg.emulate_media(media='screen')
-    pg.pdf(path=f'{OUT}/informe_prova.pdf', format='A4', print_background=True)
+    g = float(pg.inner_text('#grade').replace(',', '.'))
+    exp = pg.evaluate("import('./game.js').then(m => m.computeGrade(JSON.parse(localStorage.getItem('far-u4-sentits-v2'))).final)")
+    assert 1 <= g <= 10 and abs(g - exp) < 0.05, f'nota {g} vs {exp}'
+    print('Nota:', g)
+    pg.emulate_media(media='print'); pg.wait_for_timeout(300); pg.screenshot(path=f'{OUT}/9_impressio.png', full_page=True)
+    pg.pdf(path=f'{OUT}/informe_prova.pdf', format='A4', print_background=True); pg.emulate_media(media='screen')
     print('Punts finals:', st['points'], '· errors', st['errors'], '· pistes', st['hints'])
 
     # Resolucions: primera pàgina 3D (estat nou)
@@ -154,7 +171,7 @@ with sync_playwright() as p:
         q = b.new_page(viewport={'width': w, 'height': h})
         q.on('pageerror', lambda e: errors.append(str(e)))
         q.goto(URL, wait_until='domcontentloaded')
-        q.evaluate(f"localStorage.setItem('{KEY}', JSON.stringify(Object.assign({{}}, {{v:1,email:'prova@isvh.cat',phase:1,start:Date.now(),end:null,points:0,streak:0,correct:0,errors:0,hints:0,phasePts:{{1:0,2:0,3:0}},p1:{{level:3,placed:{{}},stats:{{}},levelStart:Date.now(),bank:{{}}}},p2:{{order:[],perm:{{}},i:0,answers:{{}}}},p3:{{i:0,perm:{{}},answers:{{}},hinted:{{}}}},review:{{atlas:{{}},quiz:[],cloze:[]}},seen:{{1:true}}}})))")
+        q.evaluate(f"localStorage.setItem('{KEY}', JSON.stringify(Object.assign({{}}, {{v:2,email:'prova@isvh.cat',phase:1,start:Date.now(),end:null,points:0,streak:0,correct:0,errors:0,hints:0,phasePts:{{1:0,2:0,3:0}},p1:{{level:3,placed:{{}},stats:{{}},levelStart:Date.now(),bank:{{}}}},p2:{{order:[],perm:{{}},i:0,answers:{{}}}},p3:{{i:0,perm:{{}},answers:{{}},hinted:{{}}}},review:{{atlas:{{}},quiz:[],cloze:[]}},seen:{{1:true}}}})))")
         q.reload(wait_until='domcontentloaded'); q.wait_for_selector('.chip'); q.wait_for_timeout(1800)
         sw = q.evaluate('document.documentElement.scrollWidth')
         assert sw <= w + 1, f'scroll horitzontal a {w}px'

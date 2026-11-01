@@ -18,11 +18,30 @@ function solid(color, o = {}) {
 }
 function glass(color, opacity, o = {}) {
   return new THREE.MeshPhysicalMaterial({
-    color, transparent: true, opacity, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05,
+    color, transparent: true, opacity, roughness: 0.35, clearcoat: 0, specularIntensity: 0.25, envMapIntensity: 0.15,
     depthWrite: false, side: THREE.DoubleSide, ...o,
   });
 }
+/** Teixit humit: lleugera capa brillant (clearcoat) i vellut (sheen) per donar volum sota la llum d'entorn. */
+function tissue(color, o = {}) {
+  return new THREE.MeshPhysicalMaterial({ color, roughness: 0.5, metalness: 0, clearcoat: 0.35, clearcoatRoughness: 0.35, sheen: 0.25, sheenRoughness: 0.6, sheenColor: 0xffe8dc, side: THREE.DoubleSide, ...o });
+}
 const CUT_Y = [new THREE.Plane(V3(0, -1, 0), 0)]; // conserva y ≤ 0 (món): tall horitzontal de l'ull
+
+/* Textures generades amb IA (OpenRouter, Gemini 3 Pro Image) i ajustades a la geometria:
+   tex_iris (iris vist de cara) i tex_fons (fotografia de fons d'ull, alineada pel disc i la fòvea). */
+const HAS_DOM = typeof document !== 'undefined';
+const pendingTextures = [];
+function loadTexture(file, onLoad) {
+  if (!HAS_DOM) return null;
+  const url = new URL('./assets/' + file, import.meta.url).href;
+  const t = new THREE.TextureLoader().load(url, tex => onLoad?.(tex));
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  pendingTextures.push(new Promise(res => { const img = t.image; if (img?.complete) res(); else { t.onUpdate = () => res(); setTimeout(res, 4000); } }));
+  return t;
+}
+/** Imatge del fons d'ull: centre i radi del camp i posició del disc i la fòvea (detectats a tools/textures.py). */
+const FONS = { c: [0.4997, 0.4998], r: 0.47, disc: [0.7129, 0.4854], fovea: [0.3955, 0.4844] };
 
 function mesh(geo, material, { occluder = true, name = '' } = {}) {
   const m = new THREE.Mesh(geo, material);
@@ -114,20 +133,11 @@ function ellipsoid(c, r, material, name) {
   return m;
 }
 
-/** Textura de l'iris: estries radials (al llarg de v del torn) i collareta. */
-function irisTexture() {
-  if (typeof document === 'undefined') return null;
-  const c = document.createElement('canvas'); c.width = 512; c.height = 64;
-  const g = c.getContext('2d');
-  g.fillStyle = '#6b4a2b'; g.fillRect(0, 0, 512, 64);
-  for (let i = 0; i < 512; i += 2) {
-    const l = 28 + Math.random() * 30;
-    g.fillStyle = `hsl(${26 + Math.random() * 10} 45% ${l}%)`;
-    g.fillRect(i, 0, 1 + Math.random() * 2, 64);
-  }
-  g.fillStyle = 'rgba(40,24,10,.45)'; g.fillRect(0, 36, 512, 6); // collareta
-  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+/** Substitueix les UV d'una geometria amb una funció de la posició local. */
+function setUV(geo, f) {
+  const pos = geo.attributes.position, uv = new Float32Array(pos.count * 2), v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); const [a, b] = f(v); uv[2 * i] = a; uv[2 * i + 1] = b; }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
 /* ================================================================== ULL */
@@ -158,18 +168,15 @@ function buildEye() {
   const anchor = (id, v) => { const o = new THREE.Object3D(); o.position.copy(v); o.name = id; eye.add(o); anchors[id] = o; };
 
   const M = {
-    sclera: solid(0xf3efe6, { roughness: 0.7 }), scleraCut: solid(0xe9e1cf, { roughness: 0.9 }),
-    choroid: solid(0x6e2a2c, { roughness: 0.8 }), retina: solid(0xe39b7d, { roughness: 0.75 }),
-    retinaCut: solid(0xd98a6b), ciliary: solid(0x7b3a3c, { roughness: 0.8 }),
+    sclera: tissue(0xf6f1e8, { roughness: 0.55, clearcoat: 0.5 }), scleraCut: solid(0xe9e1cf, { roughness: 0.9 }),
+    choroid: tissue(0x6a2328, { roughness: 0.7, sheen: 0.2 }), retina: tissue(0xffffff, { roughness: 0.55, clearcoat: 0.6, map: loadTexture('tex_fons.webp') }),
+    retinaCut: solid(0xd98a6b), ciliary: tissue(0x76313a, { roughness: 0.7 }),
     lens: glass(0xf7e7b0, 0.62, { roughness: 0.2 }), lensCut: solid(0xf3dc9a, { transparent: true, opacity: 0.85, roughness: 0.3 }),
     cornea: glass(0xcfe8ff, 0.32), corneaCut: solid(0xb9d9f0, { transparent: true, opacity: 0.7 }),
     aqueous: glass(0x9fd6f0, 0.16), vitreous: glass(0xbfe5dc, 0.10),
-    iris: solid(0xffffff, { map: irisTexture(), roughness: 0.85 }), irisCut: solid(0x4a3019),
-    nerve: solid(0xf1e3b8, { clippingPlanes: CUT_Y, roughness: 0.8 }),
-    disc: solid(0xfff1c6, { clippingPlanes: CUT_Y }), macula: solid(0xc9902c, { clippingPlanes: CUT_Y }),
-    fovea: solid(0x7a4a16, { clippingPlanes: CUT_Y }),
-    vessel: solid(0xb4232f, { clippingPlanes: CUT_Y, roughness: 0.4 }),
-    muscle: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: THREE.DoubleSide, clippingPlanes: CUT_Y }),
+    iris: tissue(0xffffff, { map: loadTexture('tex_iris.webp'), roughness: 0.7, clearcoat: 0.2, sheen: 0 }), irisCut: solid(0x4a3019),
+    nerve: tissue(0xf1e3b8, { clippingPlanes: CUT_Y, roughness: 0.6 }),
+    muscle: tissue(0xffffff, { vertexColors: true, roughness: 0.45, clearcoat: 0.45, clippingPlanes: CUT_Y }),
     zonule: new THREE.LineBasicMaterial({ color: 0xe8e0c8, transparent: true, opacity: 0.8 }),
   };
 
@@ -182,12 +189,16 @@ function buildEye() {
   eye.add(solidLathe([...cOut, ...cIn], M.cornea, M.corneaCut, { name: 'Còrnia' }));
   // Coroide i retina (de la ora serrata al pol posterior)
   eye.add(solidLathe([...arc(EYE.R_SCL_IN, EYE.ORA - 2 * DEG, Math.PI), ...arc(EYE.R_CHO_IN, Math.PI, EYE.ORA - 2 * DEG)], M.choroid, M.choroid, { name: 'Coroide' }));
-  eye.add(solidLathe([...arc(EYE.R_CHO_IN, EYE.ORA, Math.PI), ...arc(EYE.R_RET_IN, Math.PI, EYE.ORA)], M.retina, M.retinaCut, { name: 'Retina' }));
+  const retina = solidLathe([...arc(EYE.R_CHO_IN, EYE.ORA, Math.PI), ...arc(EYE.R_RET_IN, Math.PI, EYE.ORA)], M.retina, M.retinaCut, { name: 'Retina', seg: 144 });
+  eye.add(retina);
   // Cos ciliar (anell triangular amb els processos ciliars cap al cristal·lí)
   const ciliary = [sph(EYE.R_SCL_IN, EYE.SPUR), sph(EYE.R_SCL_IN, EYE.ORA), sph(EYE.R_CHO_IN, EYE.ORA), [6.7, 7.25], [LENS_EQ + 0.75, 7.95], [5.8, 8.5]];
   eye.add(solidLathe(ciliary, M.ciliary, M.ciliary, { name: 'Cos ciliar' }));
   // Iris (forat central = pupil·la)
-  eye.add(solidLathe([...IRIS_BACK, ...IRIS_FRONT], M.iris, M.irisCut, { name: 'Iris' }));
+  const iris = solidLathe([...IRIS_BACK, ...IRIS_FRONT], M.iris, M.irisCut, { name: 'Iris' });
+  eye.add(iris);
+  // UV de l'iris: projecció frontal (dreta = nasal, amunt = superior = −z local); el cercle de l'iris fa 0,49 de la imatge
+  setUV(iris.children[0].geometry, v => [0.5 + 0.49 * v.x / 5.85, 0.5 - 0.49 * v.z / 5.85]);
   // Cristal·lí biconvex
   const lens = [
     ...Array.from({ length: 25 }, (_, i) => { const r = LENS_EQ * i / 24; return [r, lensAnt(r)]; }),
@@ -216,25 +227,24 @@ function buildEye() {
 
   // Fons d'ull: màcula amb fòvea (temporal) i disc òptic (nasal), sobre la superfície interna de la retina
   const onRetina = (a, phi, d = 0.06) => { const [r, y] = sph(EYE.R_RET_IN - d, a); return P(r, y, phi); };
-  const patch = (center, radius, material, name) => {
-    const m = mesh(new THREE.CircleGeometry(radius, 40), material, { name });
-    m.position.copy(center); m.lookAt(0, 0, 0); // normal cap al centre del globus
-    m.userData.occluder = false;
-    eye.add(m); return m;
-  };
   const MAC = { a: 176 * DEG, phi: TEMPORAL + 0.62 }, DISC = { a: 164 * DEG, phi: NASAL - 0.42 };
-  patch(onRetina(MAC.a, MAC.phi, 0.12), 1.55, M.macula, 'Màcula');
-  patch(onRetina(MAC.a, MAC.phi, 0.16), 0.45, M.fovea, 'Fòvea');
-  patch(onRetina(DISC.a, DISC.phi, 0.12), 0.9, M.disc, 'Disc òptic');
-  // Vasos centrals de la retina: arcades que surten del disc i envolten la màcula
-  const vesselPath = (a1, phi1, a2, phi2) => {
-    const pts = [];
-    for (let i = 0; i <= 14; i++) { const t = i / 14; pts.push(onRetina(DISC.a + (a1 - DISC.a) * t + (a2 - a1) * t * t, DISC.phi + (phi1 - DISC.phi) * t + (phi2 - phi1) * t * t, 0.1)); }
-    return pts;
-  };
-  for (const [a1, p1, a2, p2, r] of [[150, -0.05, 120, TEMPORAL + 0.25, 0.14], [170, 0.2, 125, TEMPORAL + 0.9, 0.12], [140, NASAL - 0.25, 115, NASAL - 0.05, 0.11], [150, NASAL - 0.9, 118, NASAL - 1.3, 0.11]]) {
-    eye.add(tube(vesselPath(a1 * DEG, p1, a2 * DEG, p2), r, M.vessel, { samples: 40, k: 8, name: 'Vas retinià' }));
-  }
+  // Fotografia de fons d'ull sobre la retina en projecció azimutal equidistant (arc des del pol posterior, en mm).
+  // Transformació de semblança calculada perquè el disc i la fòvea de la imatge caiguin sobre DISC i MAC.
+  const az = v => { const rr = Math.hypot(v.x, v.z), th = Math.acos(Math.max(-1, Math.min(1, -v.y / v.length()))) * EYE.R_RET_IN; return rr < 1e-6 ? [0, 0] : [th * v.x / rr, th * v.z / rr]; };
+  const azOf = (a, phi) => az(onRetina(a, phi, 0));
+  const [m1, m2] = [azOf(MAC.a, MAC.phi), azOf(DISC.a, DISC.phi)];
+  const [i1, i2] = [FONS.fovea, FONS.disc];          // imatge: x cap a la dreta (nasal), y cap avall (inferior = +z local)
+  const dm = [m2[0] - m1[0], m2[1] - m1[1]], di = [i2[0] - i1[0], i2[1] - i1[1]];
+  const k = Math.hypot(...di) / Math.hypot(...dm), rot = Math.atan2(di[1], di[0]) - Math.atan2(dm[1], dm[0]);
+  const [cr, sr] = [Math.cos(rot) * k, Math.sin(rot) * k];
+  setUV(retina.children[0].geometry, v => {
+    const [x, z] = az(v), dx = x - m1[0], dz = z - m1[1];
+    let u = i1[0] + cr * dx - sr * dz, w = i1[1] + sr * dx + cr * dz;
+    const ru = u - FONS.c[0], rw = w - FONS.c[1], rr = Math.hypot(ru, rw);
+    if (rr > FONS.r + 0.02) { u = FONS.c[0] + ru / rr * (FONS.r + 0.02); w = FONS.c[1] + rw / rr * (FONS.r + 0.02); } // perifèria: vora difuminada
+    return [u, 1 - w];
+  });
+  void M;
 
   // Nervi òptic: surt pel disc (nasal) i va cap a l'àpex de l'òrbita
   const exit = (() => { const [r, y] = sph(EYE.R_SCL, DISC.a); return P(r, y, DISC.phi); })();
@@ -304,13 +314,13 @@ function buildEar() {
   const anchors = {};
   const anchorIn = (grp, id, v) => { const o = new THREE.Object3D(); o.position.copy(v); o.name = id; grp.add(o); anchors[id] = o; };
   const M = {
-    skin: solid(0xe8b096, { roughness: 0.62 }), skinIn: solid(0xd48d78, { roughness: 0.7 }),
-    tm: solid(0xc9cfd4, { roughness: 0.25, metalness: 0.05 }),
-    bone: solid(0xf0e6d0, { roughness: 0.55 }), ossicle: solid(0xf5eedc, { roughness: 0.4 }),
-    window: solid(0x8f7f63, { roughness: 0.6 }), round: solid(0x3d3a4a),
-    cochlea: solid(0xf1d2bd, { roughness: 0.45 }), canal: solid(0xe9dcbc, { roughness: 0.45 }),
-    nerve: solid(0xe8c94f, { roughness: 0.55 }), tube: solid(0xd98f8a, { roughness: 0.6 }),
-    cavity: glass(0xbcd9f2, 0.08), wall: solid(0xe0cfae, { roughness: 0.9 }),
+    skin: tissue(0xe9b39a, { roughness: 0.55, sheen: 0.6, sheenColor: 0xffd9c8, clearcoat: 0.15 }), skinIn: tissue(0xd48d78, { roughness: 0.55, clearcoat: 0.4 }),
+    tm: tissue(0xc8d0d8, { roughness: 0.2, clearcoat: 0.9, sheen: 0.2, transparent: true, opacity: 0.88 }),
+    bone: tissue(0xefe3cb, { roughness: 0.5, clearcoat: 0.25 }), ossicle: tissue(0xf6eedd, { roughness: 0.35, clearcoat: 0.5 }),
+    window: tissue(0x8f7f63, { roughness: 0.6 }), round: solid(0x3d3a4a),
+    cochlea: tissue(0xf0d2be, { roughness: 0.4, clearcoat: 0.5 }), canal: tissue(0xebdfc2, { roughness: 0.4, clearcoat: 0.5 }),
+    nerve: tissue(0xe8c94f, { roughness: 0.45, clearcoat: 0.4 }), tube: tissue(0xd98f8a, { roughness: 0.5, clearcoat: 0.4 }),
+    wall: tissue(0xe0cfae, { roughness: 0.8 }),
   };
 
   /* ---- Orella mitjana i interna (coordenades reals, origen al centre del timpà) */
@@ -391,7 +401,6 @@ function buildEar() {
   // Trompa d'Eustaqui: de la paret anterior de la caixa del timpà cap a la nasofaringe
   const tubeE = tube([V3(-1.6, -3.9, 2.0), V3(-4.6, -6.6, 5.2), V3(-8.2, -11.4, 7.6), V3(-12.2, -16.4, 9.8)], t => 0.95 + 0.9 * t, M.tube, { samples: 50, k: 16, name: 'Trompa d\'Eustaqui' });
   mi.add(tubeE);
-  // Caixa del timpà (espai aeri), translúcida
 
   /* ---- Orella externa (coordenades del món) */
   const ext = new THREE.Group(); root.add(ext);
@@ -449,43 +458,44 @@ function buildEar() {
 }
 
 /* ================================================================== catàleg */
+// name: {ca, es}. parts: prefixos dels noms de malla que s'il·luminen quan s'encerta l'estructura.
 export const MODELS = {
   ull: {
-    title: 'Ull dret · secció horitzontal',
+    title: { ca: 'Ull dret · secció horitzontal', es: 'Ojo derecho · sección horizontal' },
     build: buildEye,
     targets: [
-      { id: 'ull-cornia', name: 'Còrnia' },
-      { id: 'ull-esclerotica', name: 'Escleròtica' },
-      { id: 'ull-coroide', name: 'Coroide' },
-      { id: 'ull-retina', name: 'Retina' },
-      { id: 'ull-iris', name: 'Iris' },
-      { id: 'ull-pupilla', name: 'Pupil·la' },
-      { id: 'ull-cristalli', name: 'Cristal·lí' },
-      { id: 'ull-ciliar', name: 'Cos ciliar' },
-      { id: 'ull-aquos', name: 'Humor aquós' },
-      { id: 'ull-vitri', name: 'Humor vitri' },
-      { id: 'ull-macula', name: 'Màcula i fòvea' },
-      { id: 'ull-disc', name: 'Disc òptic' },
-      { id: 'ull-nervi', name: 'Nervi òptic' },
-      { id: 'ull-muscul', name: 'Múscul extraocular' },
+      { id: 'ull-cornia', name: { ca: 'Còrnia', es: 'Córnea' }, parts: ['Còrnia'] },
+      { id: 'ull-esclerotica', name: { ca: 'Escleròtica', es: 'Esclerótica' }, parts: ['Escleròtica'] },
+      { id: 'ull-coroide', name: { ca: 'Coroide', es: 'Coroides' }, parts: ['Coroide'] },
+      { id: 'ull-retina', name: { ca: 'Retina', es: 'Retina' }, parts: ['Retina'] },
+      { id: 'ull-iris', name: { ca: 'Iris', es: 'Iris' }, parts: ['Iris'] },
+      { id: 'ull-pupilla', name: { ca: 'Pupil·la', es: 'Pupila' }, parts: ['Iris'] },
+      { id: 'ull-cristalli', name: { ca: 'Cristal·lí', es: 'Cristalino' }, parts: ['Cristal·lí'] },
+      { id: 'ull-ciliar', name: { ca: 'Cos ciliar', es: 'Cuerpo ciliar' }, parts: ['Cos ciliar'] },
+      { id: 'ull-aquos', name: { ca: 'Humor aquós', es: 'Humor acuoso' }, parts: ['Humor aquós'] },
+      { id: 'ull-vitri', name: { ca: 'Humor vitri', es: 'Humor vítreo' }, parts: ['Humor vitri'] },
+      { id: 'ull-macula', name: { ca: 'Màcula i fòvea', es: 'Mácula y fóvea' }, parts: [] },
+      { id: 'ull-disc', name: { ca: 'Disc òptic', es: 'Disco óptico' }, parts: [] },
+      { id: 'ull-nervi', name: { ca: 'Nervi òptic', es: 'Nervio óptico' }, parts: ['Nervi òptic'] },
+      { id: 'ull-muscul', name: { ca: 'Múscul extraocular', es: 'Músculo extraocular' }, parts: ['Recte lateral'] },
     ],
   },
   oid: {
-    title: 'Orella dreta · tall coronal',
+    title: { ca: 'Orella dreta · tall coronal', es: 'Oído derecho · corte coronal' },
     build: buildEar,
     targets: [
-      { id: 'oid-pavello', name: 'Pavelló auricular' },
-      { id: 'oid-conducte', name: 'Conducte auditiu extern' },
-      { id: 'oid-timpa', name: 'Timpà' },
-      { id: 'oid-martell', name: 'Martell' },
-      { id: 'oid-enclusa', name: 'Enclusa' },
-      { id: 'oid-estrep', name: 'Estrep' },
-      { id: 'oid-oval', name: 'Finestra oval' },
-      { id: 'oid-eustaqui', name: 'Trompa d\'Eustaqui' },
-      { id: 'oid-vestibul', name: 'Vestíbul' },
-      { id: 'oid-canals', name: 'Canals semicirculars' },
-      { id: 'oid-coclea', name: 'Còclea' },
-      { id: 'oid-nervi', name: 'Nervi vestibulococlear' },
+      { id: 'oid-pavello', name: { ca: 'Pavelló auricular', es: 'Pabellón auricular' }, parts: ['Pavelló', 'Hèlix', 'Antihèlix', 'Arrel', 'Tragus', 'Antitragus', 'Lòbul'] },
+      { id: 'oid-conducte', name: { ca: 'Conducte auditiu extern', es: 'Conducto auditivo externo' }, parts: ['Conducte'] },
+      { id: 'oid-timpa', name: { ca: 'Timpà', es: 'Tímpano' }, parts: ['Timpà', 'Anell'] },
+      { id: 'oid-martell', name: { ca: 'Martell', es: 'Martillo' }, parts: ['Martell'] },
+      { id: 'oid-enclusa', name: { ca: 'Enclusa', es: 'Yunque' }, parts: ['Enclusa'] },
+      { id: 'oid-estrep', name: { ca: 'Estrep', es: 'Estribo' }, parts: ['Estrep'] },
+      { id: 'oid-oval', name: { ca: 'Finestra oval', es: 'Ventana oval' }, parts: ['Finestra oval'] },
+      { id: 'oid-eustaqui', name: { ca: 'Trompa d\'Eustaqui', es: 'Trompa de Eustaquio' }, parts: ['Trompa'] },
+      { id: 'oid-vestibul', name: { ca: 'Vestíbul', es: 'Vestíbulo' }, parts: ['Vestíbul'] },
+      { id: 'oid-canals', name: { ca: 'Canals semicirculars', es: 'Conductos semicirculares' }, parts: ['Canal', 'Ampolla'] },
+      { id: 'oid-coclea', name: { ca: 'Còclea', es: 'Cóclea' }, parts: ['Còclea', 'Finestra rodona'] },
+      { id: 'oid-nervi', name: { ca: 'Nervi vestibulococlear', es: 'Nervio vestibulococlear' }, parts: ['Nervi'] },
     ],
   },
 };
@@ -521,18 +531,58 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
   renderer.domElement.className = 'gl';
 
   const scene = new THREE.Scene();
+  pendingTextures.length = 0;
   const model = buildModel(kind);
   scene.add(model.root);
-  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6d6480, 1.1));
-  const key = new THREE.DirectionalLight(0xffffff, 1.9); key.position.set(30, 60, 50); scene.add(key);
-  const rim = new THREE.DirectionalLight(0xc8d8ff, 0.7); rim.position.set(-50, 20, -40); scene.add(rim);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.45); fill.position.set(-20, -40, 30); scene.add(fill);
+  // Llum d'estudi: entorn d'habitació (reflexos suaus als teixits humits) + clau càlida, contra blavós i farciment
+  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6d6480, 0.55));
+  const key = new THREE.DirectionalLight(0xfff3e6, 1.6); key.position.set(30, 60, 50); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xc8d8ff, 0.9); rim.position.set(-50, 20, -40); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-20, -40, 30); scene.add(fill);
+  // Qualitat adaptativa: si els fotogrames triguen massa (equip sense acceleració gràfica),
+  // es treuen els reflexos d'entorn i les capes brillants, i es compensa amb més llum ambient.
+  const forced = HAS_DOM && /[?&]q=(hq|lite)/.exec(location.search)?.[1];
+  // Renderitzadors per programari (sense GPU): mode lleuger des del principi
+  const glr = (() => { try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)); } catch { return ''; } })();
+  let lite = forced === 'lite' || (forced !== 'hq' && /swiftshader|llvmpipe|softpipe|basic render|microsoft basic/i.test(glr));
+  const hemi = scene.children.find(o => o.isHemisphereLight);
+  function goLite() {
+    if (lite === 'done') return; lite = 'done';
+    scene.environment = null; hemi.intensity = 1.1;
+    model.root.traverse(o => { if (o.isMesh && o.material.isMeshPhysicalMaterial) { o.material.clearcoat = 0; o.material.sheen = 0; o.material.needsUpdate = true; } });
+    renderer.setPixelRatio(1); resize();
+  }
+  if (lite) queueMicrotask(goLite);
+  import('./vendor/RoomEnvironment.js').then(({ RoomEnvironment }) => {
+    if (!alive || lite) return;
+    const pm = new THREE.PMREMGenerator(renderer);
+    scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.18;
+    hemi.intensity = 0.75;
+    pm.dispose(); wake();
+  }).catch(() => {});
+  Promise.all(pendingTextures.splice(0)).then(() => wake());
+  // Ombra de contacte: taca radial suau sota el model
+  { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, 'rgba(34,25,77,.30)'); gr.addColorStop(0.6, 'rgba(34,25,77,.08)'); gr.addColorStop(1, 'rgba(34,25,77,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const box = new THREE.Box3().setFromObject(model.root), size = box.getSize(new THREE.Vector3());
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    sh.rotation.x = -Math.PI / 2; sh.scale.set(size.x * 1.3, size.z * 1.3, 1);
+    sh.position.set((box.min.x + box.max.x) / 2, box.min.y - 3, (box.min.z + box.max.z) / 2); sh.renderOrder = -2; scene.add(sh); }
+  // Malles de cada estructura (per il·luminar-les en encertar)
+  const partsOf = {};
+  for (const t of MODELS[kind].targets) { partsOf[t.id] = []; model.root.traverse(o => { if (o.isMesh && t.parts.some(p => o.name.startsWith(p))) partsOf[t.id].push(o); }); }
+  const flashes = [];
 
-  const camera = new THREE.PerspectiveCamera(30, 1, 1, 1000);
+  const camera = new THREE.PerspectiveCamera(30, 1, 1, 3000);
   // Encaix: esfera envolupant del model, vista des de la direcció de càmera de la làmina
   const sphere = new THREE.Box3().setFromObject(model.root).getBoundingSphere(new THREE.Sphere());
   const viewDir = model.camera.pos.clone().sub(model.camera.target).normalize();
   const home = { pos: model.camera.pos.clone(), target: sphere.center.clone().lerp(model.camera.target, 0.5) };
+  // Punts de mostra de la superfície (vèrtexs, cada 7è) per a l'encaix exacte en pantalla
+  const hull = []; model.root.traverse(o => { if (o.isMesh && !o.userData.noFit) { const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i += 7) { const q = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (Number.isFinite(q.x + q.y + q.z)) hull.push(q); } } });
+  // l'ull es talla horitzontalment: la meitat superior no es dibuixa i no compta per a l'encaix
+  if (kind === 'ull') for (let i = hull.length - 1; i >= 0; i--) if (hull[i].y > 0.05) hull.splice(i, 1);
   let touched = false;
   camera.position.copy(home.pos);
   let controls = null;
@@ -541,7 +591,7 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
     controls.target.copy(model.camera.target);
     controls.enableDamping = !reducedMotion; controls.dampingFactor = 0.12;
     controls.enablePan = false; controls.rotateSpeed = 0.8;
-    controls.minDistance = model.bounds * 0.45; controls.maxDistance = model.bounds * 4;
+    controls.minDistance = model.bounds * 0.45; controls.maxDistance = model.bounds * 16;
     controls.target.copy(home.target); controls.update();
     controls.addEventListener('start', () => { touched = true; anim = null; });
   });
@@ -556,17 +606,23 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
     const r = host.getBoundingClientRect(); w = Math.max(1, r.width); h = Math.max(1, r.height);
     renderer.setSize(w, h, false); camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    // distància perquè l'esfera càpiga a la part útil (fitWidth × amplada, fitHeight × alçada)
-    const vf = camera.fov * DEG / 2, hf = Math.atan(Math.tan(vf) * camera.aspect * fitWidth);
-    const rad = sphere.radius * (model.fitScale || 0.86); // l'esfera sobreestima: el model no n'omple els extrems
-    const d = Math.max(rad / Math.sin(Math.atan(Math.tan(vf) * fitHeight)), rad / Math.sin(hf));
-    home.pos.copy(home.target).addScaledVector(viewDir, d);
+    // Distància mínima perquè la caixa del model, projectada, càpiga a la part útil
+    // (fitWidth × amplada al centre, entre les dues columnes d'etiquetes; fitHeight × alçada).
+    const fw = typeof fitWidth === 'function' ? fitWidth(w, h) : fitWidth, fh = typeof fitHeight === 'function' ? fitHeight(w, h) : fitHeight;
+    const cam = camera.clone(), v = new THREE.Vector3();
+    const fits = d => {
+      cam.position.copy(home.target).addScaledVector(viewDir, d); cam.lookAt(home.target); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+      return hull.every(c => { v.copy(c).project(cam); return v.z < 1 && Math.abs(v.x) <= fw && Math.abs(v.y) <= fh; });
+    };
+    let lo = sphere.radius * 0.3, hi = sphere.radius * 30;
+    for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+    home.pos.copy(home.target).addScaledVector(viewDir, hi);
     if (!touched) { camera.position.copy(home.pos); controls?.target.copy(home.target); camera.lookAt(home.target); }
     wake();
   }
   const listeners = new Set();
   let anim = null, raf = 0, alive = true;
-  let settle = 30;
+  let settle = 30, slow = 0;
   const wake = (n = 30) => { settle = Math.max(settle, n); };
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
   function project(id) {
@@ -584,15 +640,34 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
   const isVisibleHit = x => !(x.object.material.clippingPlanes && x.point.y > 0.01);
   // Renderitzat sota demanda: només es dibuixa quan alguna cosa canvia (gir, zoom, animació, mida)
   // i uns quants fotogrames després, perquè els forats acabin de lliscar al seu lloc.
+  let lastTick = 0;
+  const born = performance.now();
   function loop() {
     if (!alive) return;
     raf = requestAnimationFrame(loop);
+    // Ritme real de fotogrames (inclou el procés de GPU): 3 salts seguits de > 110 ms durant els primers 20 s → mode lleuger
+    const now = performance.now();
+    if (!lite && forced !== 'hq' && lastTick && now - born < 20000 && document.visibilityState === 'visible') {
+      slow = now - lastTick > 110 ? slow + 1 : 0; if (slow >= 3) goLite();
+    }
+    lastTick = now;
+    if (flashes.length) {
+      const now = performance.now();
+      for (let i = flashes.length - 1; i >= 0; i--) {
+        const f = flashes[i], t = (now - f.t0) / 1100;
+        if (t >= 1) { f.items.forEach(({ m, orig, tmp }) => { m.material = orig; tmp.dispose(); }); flashes.splice(i, 1); continue; }
+        const k = Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 2;
+        f.items.forEach(({ tmp }) => { tmp.emissiveIntensity = 0.9 * k; });
+      }
+      wake(4);
+    }
     if (anim) {
       const t = Math.min(1, (performance.now() - anim.t0) / anim.ms), e = 1 - Math.pow(1 - t, 3);
       camera.position.lerpVectors(anim.from, anim.to, e);
       if (controls) controls.target.lerpVectors(anim.tFrom, anim.tTo, e);
       if (t >= 1) anim = null;
       wake(20);
+      if (anim?.home) { anim.to.copy(home.pos); } // si la mida canvia durant l'entrada, acaba a la vista correcta
     }
     if (controls?.update()) wake(20);
     if (settle <= 0) return;
@@ -603,6 +678,13 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
   }
   loop();
   ready.then(() => { controls.addEventListener('change', () => wake(20)); wake(); });
+  // Entrada: la càmera s'apropa girant uns graus fins a la vista de la làmina
+  if (!reducedMotion) {
+    const to = home.pos.clone(), axis = V3(0, 1, 0);
+    const from = home.target.clone().add(to.clone().sub(home.target).applyAxisAngle(axis, 0.55).multiplyScalar(1.45));
+    camera.position.copy(from);
+    anim = { t0: performance.now() + 60, ms: 1300, from, to, tFrom: home.target.clone(), tTo: home.target.clone(), home: true };
+  }
   function flyTo(pos, target, ms = 700) {
     if (reducedMotion) { camera.position.copy(pos); controls?.target.copy(target); return; }
     anim = { t0: performance.now(), ms, from: camera.position.clone(), to: pos, tFrom: (controls?.target || home.target).clone(), tTo: target };
@@ -613,7 +695,7 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
     zoomBy(f) {
       const t = controls?.target || home.target, d = camera.position.clone().sub(t);
       touched = true;
-      const len = Math.min(model.bounds * 4, Math.max(model.bounds * 0.45, d.length() * f));
+      const len = Math.min(model.bounds * 16, Math.max(model.bounds * 0.45, d.length() * f));
       flyTo(t.clone().add(d.setLength(len)), t.clone(), 300);
     },
     reset() { touched = false; flyTo(home.pos.clone(), home.target.clone()); },
@@ -627,9 +709,21 @@ export function mountViewer(host, kind, { reducedMotion = false, fitWidth = 1, f
       flyTo(t.clone().add(view.multiplyScalar(d)), t.clone());
     },
     onFrame(fn) { listeners.add(fn); wake(); return () => listeners.delete(fn); },
+    /** Il·lumina breument l'estructura encertada (sense modificar el material compartit). */
+    flash(id, color = 0xffd86b) {
+      if (reducedMotion) return;
+      const items = (partsOf[id] || []).map(m => { const orig = m.material, tmp = orig.clone(); tmp.emissive = new THREE.Color(color); tmp.emissiveIntensity = 0; m.material = tmp; return { m, orig, tmp }; });
+      if (items.length) { flashes.push({ t0: performance.now(), items }); wake(); }
+    },
+    /** Està la càmera en moviment (entrada, zoom o inèrcia)? */
+    moving() { return !!anim; },
+    isLite: () => !!lite,
+    stats: () => ({ frame, settle, slow, lite, anim: !!anim, flashes: flashes.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs?.length }),
     wake,
     snapshot() { return renderer.domElement.toDataURL('image/png'); },
     dispose() {
+      flashes.forEach(f => f.items.forEach(({ m, orig, tmp }) => { m.material = orig; tmp.dispose(); })); flashes.length = 0;
+      scene.environment?.dispose();
       alive = false; cancelAnimationFrame(raf); ro.disconnect(); controls?.dispose();
       model.root.traverse(o => { if (o.isMesh || o.isLineSegments) { o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : [m]).forEach(x => { x.map?.dispose(); x.dispose(); }); } });
       renderer.dispose(); renderer.domElement.remove();

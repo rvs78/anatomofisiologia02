@@ -1,21 +1,25 @@
-// Contingut didàctic de Sentits Quest · U4 (MP0061, FAR 1L).
+// Contingut didàctic de Sentits Quest · U4 (MP0061, FAR 1L), en català (ca) i castellà (es).
 // Font: Canva «Unitat 4 · Coordinació i sentits · Pell i mucoses · Revisió ampliada»:
 // diapositives 1–6 (coordinació, efectors, estímuls), 7–18 (vista), 19–27 (oïda) i taules de patologies.
-// Els noms dels nivells han d'existir a MODELS de models.js (ho comprova tests/check.mjs).
+// Les dues llengües tenen el MATEIX ordre (preguntes, opcions i buits): l'estat de la partida desa índexs,
+// de manera que es pot canviar d'idioma a mig joc. tests/check.mjs ho comprova.
 
+// Nivells: ids de models.js
 export const LEVELS = [
-  { model: 'ull', title: 'Capes i segment anterior', names: ['Còrnia', 'Escleròtica', 'Coroide', 'Retina', 'Iris', 'Pupil·la', 'Cristal·lí'] },
-  { model: 'ull', title: 'Medis, fons d\'ull i annexos', names: ['Cos ciliar', 'Humor aquós', 'Humor vitri', 'Màcula i fòvea', 'Disc òptic', 'Nervi òptic', 'Múscul extraocular'] },
-  { model: 'ull', title: 'Repte de l\'ull complet', names: 'ALL', boss: true },
-  { model: 'oid', title: 'Orella externa i mitjana', names: ['Pavelló auricular', 'Conducte auditiu extern', 'Timpà', 'Martell', 'Enclusa', 'Estrep', 'Trompa d\'Eustaqui'] },
-  { model: 'oid', title: 'Orella interna', names: ['Estrep', 'Finestra oval', 'Vestíbul', 'Canals semicirculars', 'Còclea', 'Nervi vestibulococlear'] },
-  { model: 'oid', title: 'Repte de l\'orella completa', names: 'ALL', boss: true },
+  { model: 'ull', title: { ca: 'Capes i segment anterior', es: 'Capas y segmento anterior' }, ids: ['ull-cornia', 'ull-esclerotica', 'ull-coroide', 'ull-retina', 'ull-iris', 'ull-pupilla', 'ull-cristalli'] },
+  { model: 'ull', title: { ca: 'Medis, fons d\'ull i annexos', es: 'Medios, fondo de ojo y anexos' }, ids: ['ull-ciliar', 'ull-aquos', 'ull-vitri', 'ull-macula', 'ull-disc', 'ull-nervi', 'ull-muscul'] },
+  { model: 'ull', title: { ca: 'Repte de l\'ull complet', es: 'Reto del ojo completo' }, ids: 'ALL', boss: true },
+  { model: 'oid', title: { ca: 'Orella externa i mitjana', es: 'Oído externo y medio' }, ids: ['oid-pavello', 'oid-conducte', 'oid-timpa', 'oid-martell', 'oid-enclusa', 'oid-estrep', 'oid-eustaqui'] },
+  { model: 'oid', title: { ca: 'Orella interna', es: 'Oído interno' }, ids: ['oid-estrep', 'oid-oval', 'oid-vestibul', 'oid-canals', 'oid-coclea', 'oid-nervi'] },
+  { model: 'oid', title: { ca: 'Repte de l\'orella completa', es: 'Reto del oído completo' }, ids: 'ALL', boss: true },
 ];
 
 // Banc del test: [enunciat, [4 opcions], índex correcte, explicació, bloc].
 // Es trien 4 preguntes del bloc «coord», 8 de «vista» i 8 d'«oida» (20 en total).
 export const QUIZ_MIX = { coord: 4, vista: 8, oida: 8 };
-export const QUIZ = [
+
+// Fase 3 · Text amb buits. Sintaxi: {correcta|distractor|distractor::pista}
+const QUIZ_CA = [
   // ---- Coordinació i estímuls (diapositives 3–6)
   ['Quin és l\'ordre correcte del circuit de coordinació?', ['Captació → processament → resposta', 'Resposta → captació → processament', 'Processament → captació → resposta', 'Captació → resposta → processament'], 0, 'Els receptors capten el canvi, els centres nerviosos integren la informació i els efectors executen la resposta.', 'coord'],
   ['Quines estructures detecten els canvis externs o interns?', ['Els receptors', 'Els efectors', 'Les glàndules endocrines', 'Els músculs'], 0, 'La captació és la primera etapa: la fan els receptors.', 'coord'],
@@ -65,8 +69,7 @@ export const QUIZ = [
   ['En el procés d\'audició, què passa just després del moviment dels fluids i les membranes coclears?', ['S\'activen les cèl·lules ciliades i la via auditiva', 'Vibra el timpà', 'Es mou el martell', 'El pavelló recull el so'], 0, 'Ordre: so i timpà → ossets → fluids coclears → cèl·lules ciliades i via auditiva.', 'oida'],
 ];
 
-// Fase 3 · Text amb buits. Sintaxi: {correcta|distractor|distractor::pista}
-export const CLOZE = [
+const CLOZE_CA = [
   {
     title: 'Defectes de refracció',
     body: 'En la {miopia|hipermetropia|presbícia::L\'ull és llarg o té massa potència òptica.} la imatge s\'enfoca {davant|darrere|a sobre::Pensa on cau el focus quan l\'ull és massa llarg.} de la retina. La persona veu borrós de {lluny|prop|costat::Aclucar els ulls per veure-hi de lluny és un signe típic.} i es corregeix amb lents {divergents|convergents|bifocals::Cal separar els raigs perquè el focus arribi més enrere.}. En la hipermetropia, en canvi, l\'ull és curt i hi ha dificultat per a la visió {propera|llunyana|nocturna::Aquí costa llegir i hi ha fatiga ocular.}. {L\'astigmatisme|L\'estrabisme|El daltonisme::La còrnia o el cristal·lí tenen una curvatura desigual.} es deu a una curvatura irregular i es corregeix amb lents cilíndriques o tòriques. La presbícia apareix amb {l\'edat|l\'exposició al sol|una infecció::El cristal·lí perd elasticitat amb els anys.} perquè disminueix la capacitat {d\'acomodació|de refracció de la còrnia|de produir llàgrimes::És la capacitat del cristal·lí d\'enfocar de prop.}.',
@@ -84,3 +87,76 @@ export const CLOZE = [
     body: 'El vertigen és la sensació de {moviment|pressió|picor::Sembla que un mateix o l\'entorn giren.} propi o de l\'entorn. Es deu a una alteració del sistema {vestibular|auditiu extern|lacrimal::Canals semicirculars, utricle i sàcul.} i pot causar sensació de gir, {nàusees|febre alta|visió de colors::És un símptoma digestiu que l\'acompanya sovint.} i desequilibri. El tractament depèn de la causa; en el VPPB es fan {maniobres|cirurgies de cataracta|audiòfons::Es fan amb moviments del cap.}. A la farmàcia cal recordar que alguns fàrmacs són ototòxics: poden afectar l\'audició o {l\'equilibri|l\'olfacte|el gust::L\'orella interna també en té els receptors.}. En el glaucoma, els col·liris per reduir la pressió ocular s\'utilitzen segons prescripció, i la pauta i la {tècnica d\'ús|mida de l\'envàs|marca comercial::Com s\'aplica la gota a l\'ull.} importen.',
   },
 ];
+
+const QUIZ_ES = [
+  // ---- Coordinación y estímulos
+  ['¿Cuál es el orden correcto del circuito de coordinación?', ['Captación → procesamiento → respuesta', 'Respuesta → captación → procesamiento', 'Procesamiento → captación → respuesta', 'Captación → respuesta → procesamiento'], 0, 'Los receptores captan el cambio, los centros nerviosos integran la información y los efectores ejecutan la respuesta.', 'coord'],
+  ['¿Qué estructuras detectan los cambios externos o internos?', ['Los receptores', 'Los efectores', 'Las glándulas endocrinas', 'Los músculos'], 0, 'La captación es la primera etapa: la hacen los receptores.', 'coord'],
+  ['¿Cuáles son los efectores del organismo?', ['Los músculos y las glándulas', 'Los receptores y los nervios', 'El encéfalo y la médula espinal', 'El ojo y el oído'], 0, 'Los efectores ejecutan la orden: los músculos se contraen o se relajan y las glándulas secretan.', 'coord'],
+  ['¿Qué hacen las glándulas exocrinas?', ['Vierten sus productos a superficies o cavidades a través de conductos', 'Liberan hormonas a la circulación', 'Detectan estímulos químicos', 'Integran la información nerviosa'], 0, 'Las exocrinas tienen conducto; por ejemplo, las salivales y las sudoríparas.', 'coord'],
+  ['¿Qué hacen las glándulas endocrinas?', ['Liberan hormonas al medio interno y a la circulación', 'Vierten el sudor en la piel', 'Producen saliva por un conducto', 'Transforman la luz en señales nerviosas'], 0, 'Las hormonas llegan por la sangre a las células diana y pueden modificar, por ejemplo, el ritmo cardíaco o la tensión arterial.', 'coord'],
+  ['¿Cuál de estos sentidos capta estímulos químicos?', ['El olfato', 'La vista', 'El oído', 'El tacto'], 0, 'Olfato y gusto captan estímulos químicos; vista, oído y tacto captan estímulos físicos.', 'coord'],
+  ['¿Cuál es el estímulo físico que capta la vista?', ['La luz', 'Las vibraciones sonoras', 'Las moléculas olorosas', 'Las sustancias disueltas'], 0, 'La vista capta la luz; el oído, las vibraciones sonoras.', 'coord'],
+  ['¿Qué hacen los receptores sensoriales con el estímulo?', ['Lo transforman en señales nerviosas', 'Ejecutan la orden del sistema nervioso', 'Lo almacenan como hormona', 'Lo transmiten directamente al músculo'], 0, 'Los receptores transforman el estímulo en señales nerviosas que llegan al sistema nervioso.', 'coord'],
+  // ---- Vista
+  ['¿Dónde se encuentra el globo ocular?', ['En la órbita (región orbitaria)', 'En la fosa nasal', 'En el conducto auditivo', 'En la región temporal'], 0, 'El globo ocular se aloja dentro de la órbita, que lo protege.', 'vista'],
+  ['¿Qué estructuras forman la capa externa del ojo?', ['La esclerótica y la córnea', 'La coroides, el cuerpo ciliar y el iris', 'La retina y el nervio óptico', 'El cristalino y el humor acuoso'], 0, 'La capa externa tiene una parte resistente y opaca (esclerótica) y una parte transparente (córnea).', 'vista'],
+  ['¿Qué estructuras forman la úvea, la capa media?', ['Coroides, cuerpo ciliar e iris', 'Esclerótica y córnea', 'Retina, mácula y fóvea', 'Cristalino y humor vítreo'], 0, 'La úvea es la capa vascular y pigmentada del ojo.', 'vista'],
+  ['¿Cuál es la capa sensorial interna con fotorreceptores?', ['La retina', 'La coroides', 'La esclerótica', 'El iris'], 0, 'La retina contiene los conos y los bastones.', 'vista'],
+  ['¿Qué estructura regula la cantidad de luz que entra en el ojo?', ['El iris', 'El cristalino', 'La coroides', 'El humor vítreo'], 0, 'El iris varía el diámetro de la pupila.', 'vista'],
+  ['¿Qué es la pupila?', ['La abertura central del iris', 'Una lente que enfoca la imagen', 'La parte blanca del ojo', 'El punto ciego de la retina'], 0, 'La pupila es un orificio, no una estructura con tejido propio.', 'vista'],
+  ['¿Qué estructura modifica su curvatura para enfocar a distancias diferentes?', ['El cristalino, con la acción del músculo ciliar', 'La retina, desplazando los fotorreceptores', 'La córnea, cambiando de grosor', 'El iris, variando el diámetro pupilar'], 0, 'Es la acomodación: el músculo ciliar cambia la curvatura del cristalino.', 'vista'],
+  ['¿Qué fotorreceptores permiten ver el color y el detalle?', ['Los conos', 'Los bastones', 'Las células ciliadas', 'Los botones gustativos'], 0, 'Los conos: color y detalle. Los bastones: visión con poca luz.', 'vista'],
+  ['¿Para qué sirven sobre todo los bastones?', ['Para la visión con poca luz', 'Para distinguir los colores', 'Para enfocar de cerca', 'Para regular la pupila'], 0, 'Los bastones son muy sensibles a la luz y permiten ver con poca iluminación.', 'vista'],
+  ['¿Por qué el disco óptico es el punto ciego?', ['Porque no tiene fotorreceptores', 'Porque tiene demasiados conos', 'Porque es la zona más pigmentada', 'Porque llega allí el humor vítreo'], 0, 'Por el disco óptico sale el nervio óptico: allí no hay conos ni bastones.', 'vista'],
+  ['¿Dónde se concentra la visión fina?', ['En la fóvea', 'En el disco óptico', 'En el iris', 'En la coroides'], 0, 'La fóvea, en el centro de la mácula, concentra la visión de detalle.', 'vista'],
+  ['¿Qué medio hace la primera refracción de la luz?', ['La córnea', 'El cristalino', 'El humor vítreo', 'La retina'], 0, 'La córnea es el primer medio transparente que atraviesa la luz.', 'vista'],
+  ['¿Qué medio es un gel que ocupa la cavidad posterior del ojo?', ['El humor vítreo', 'El humor acuoso', 'El cristalino', 'La coroides'], 0, 'El humor acuoso es un líquido de la parte anterior; el vítreo es un gel de la parte posterior.', 'vista'],
+  ['¿Qué capa es vascular y aporta nutrientes?', ['La coroides', 'La esclerótica', 'La córnea', 'La retina'], 0, 'La coroides es la capa vascular del ojo.', 'vista'],
+  ['¿Cuál es el orden de los medios que atraviesa la luz?', ['Córnea → humor acuoso → cristalino → humor vítreo → retina', 'Cristalino → córnea → humor vítreo → humor acuoso → retina', 'Córnea → cristalino → humor acuoso → retina → humor vítreo', 'Humor acuoso → córnea → humor vítreo → cristalino → retina'], 0, 'La luz entra por la córnea y llega a la retina tras atravesar los medios transparentes.', 'vista'],
+  ['¿Cuántos músculos extraoculares orientan cada globo ocular?', ['Seis', 'Cuatro', 'Dos', 'Ocho'], 0, 'Seis músculos extraoculares mueven cada ojo de forma coordinada.', 'vista'],
+  ['¿Dónde se construye la percepción visual?', ['En el cerebro, que integra las señales', 'En la retina', 'En el cristalino', 'En la córnea'], 0, 'La retina transforma la luz en señales; el cerebro las integra y construye la imagen.', 'vista'],
+  ['¿Qué función tienen los párpados, las pestañas y las lágrimas?', ['Proteger y humedecer el ojo', 'Enfocar la luz', 'Formar la imagen', 'Mover el globo ocular'], 0, 'Son órganos auxiliares de protección; los músculos extraoculares orientan el ojo.', 'vista'],
+  ['La esclerótica…', ['Es la parte blanca y fibrosa que protege el globo ocular', 'Es transparente y deja pasar la luz', 'Contiene los fotorreceptores', 'Produce el humor acuoso'], 0, 'La esclerótica es una barrera fibrosa; los músculos se fijan en ella.', 'vista'],
+  // ---- Oído
+  ['¿En qué partes se divide el oído?', ['Externo, medio e interno', 'Superior e inferior', 'Externo e interno', 'Pabellón, tímpano y nervio'], 0, 'Oído externo (pabellón y conducto), medio (huesecillos) e interno (cóclea y vestíbulo).', 'oida'],
+  ['¿Cuál es la función del pabellón auricular?', ['Recoger el sonido', 'Transmitir la vibración a la ventana oval', 'Equilibrar las presiones', 'Detectar la aceleración'], 0, 'El pabellón recoge el sonido y el conducto lo dirige hasta el tímpano.', 'oida'],
+  ['¿Qué estructura dirige el sonido hasta el tímpano?', ['El conducto auditivo externo', 'La trompa de Eustaquio', 'La cóclea', 'El vestíbulo'], 0, 'El conducto auditivo externo lleva el sonido del pabellón al tímpano.', 'oida'],
+  ['¿Qué función tiene el cerumen?', ['Contribuye a proteger el conducto auditivo', 'Amplifica el sonido', 'Detecta la aceleración', 'Equilibra las presiones'], 0, 'El cerumen protege el conducto; si se acumula, puede formar un tapón.', 'oida'],
+  ['¿Qué estructura vibra cuando llegan las ondas sonoras?', ['El tímpano', 'La cóclea', 'El nervio vestibulococlear', 'El pabellón auricular'], 0, 'El tímpano vibra y pasa la vibración a los huesecillos.', 'oida'],
+  ['¿Cuál es el orden de los huesecillos, desde el tímpano?', ['Martillo → yunque → estribo', 'Estribo → yunque → martillo', 'Yunque → martillo → estribo', 'Martillo → estribo → yunque'], 0, 'El martillo está unido al tímpano y el estribo, a la ventana oval.', 'oida'],
+  ['¿Qué elemento recibe el movimiento del estribo?', ['La ventana oval', 'El tímpano', 'El conducto auditivo externo', 'La trompa de Eustaquio'], 0, 'Por la ventana oval la vibración entra en el oído interno.', 'oida'],
+  ['¿Con qué cavidad comunica la trompa de Eustaquio?', ['Con la nasofaringe', 'Con la cóclea', 'Con el conducto auditivo externo', 'Con el vestíbulo'], 0, 'La trompa comunica el oído medio con la nasofaringe.', 'oida'],
+  ['¿Qué función tiene la trompa de Eustaquio?', ['Ayudar a equilibrar las presiones', 'Recoger el sonido', 'Detectar los giros de la cabeza', 'Convertir la vibración en señal nerviosa'], 0, 'Equilibra la presión a ambos lados del tímpano.', 'oida'],
+  ['¿Dónde se encuentra el órgano de Corti?', ['En la cóclea', 'En el vestíbulo', 'En el oído medio', 'En el tímpano'], 0, 'El órgano de Corti, con las células ciliadas auditivas, está dentro de la cóclea.', 'oida'],
+  ['¿Qué células convierten la vibración en señales nerviosas?', ['Las células ciliadas', 'Los conos', 'Los bastones', 'Los melanocitos'], 0, 'El movimiento de los líquidos cocleares activa las células ciliadas.', 'oida'],
+  ['¿Qué nervio lleva al encéfalo la información auditiva y la del equilibrio?', ['El nervio vestibulococlear (VIII)', 'El nervio óptico', 'El bulbo olfatorio', 'La médula espinal'], 0, 'El nervio VIII tiene una rama coclear (audición) y una vestibular (equilibrio).', 'oida'],
+  ['¿Qué detectan los conductos semicirculares?', ['La aceleración angular (los giros)', 'La aceleración lineal y la gravedad', 'Los sonidos agudos', 'La presión del aire'], 0, 'Utrículo y sáculo detectan la aceleración lineal y la gravedad.', 'oida'],
+  ['¿Qué detectan el utrículo y el sáculo?', ['La aceleración lineal y la gravedad', 'La aceleración angular', 'El sonido que llega al pabellón', 'La vibración del estribo'], 0, 'Están en el vestíbulo; los conductos semicirculares detectan los giros.', 'oida'],
+  ['Además de los receptores de la audición, ¿qué aloja el oído interno?', ['Los receptores del equilibrio', 'Los receptores del gusto', 'Los receptores del tacto', 'Los fotorreceptores'], 0, 'El oído interno contiene la cóclea (audición) y el aparato vestibular (equilibrio).', 'oida'],
+  ['Para mantener el equilibrio, ¿qué señales integra el cerebro?', ['Vestibulares, visuales y propioceptivas', 'Solo vestibulares', 'Auditivas y olfativas', 'Gustativas y táctiles'], 0, 'El equilibrio combina la información del oído interno, la vista y la propiocepción.', 'oida'],
+  ['En el proceso de audición, ¿qué ocurre justo después del movimiento de los líquidos y las membranas cocleares?', ['Se activan las células ciliadas y la vía auditiva', 'Vibra el tímpano', 'Se mueve el martillo', 'El pabellón recoge el sonido'], 0, 'Orden: sonido y tímpano → huesecillos → líquidos cocleares → células ciliadas y vía auditiva.', 'oida'],
+];
+
+// Mateix ordre i mateix nombre de buits que la versió catalana
+const CLOZE_ES = [
+  {
+    title: 'Defectos de refracción',
+    body: 'En la {miopía|hipermetropía|presbicia::El ojo es largo o tiene demasiada potencia óptica.} la imagen se enfoca {delante|detrás|encima::Piensa dónde cae el foco cuando el ojo es demasiado largo.} de la retina. La persona ve borroso de {lejos|cerca|lado::Entrecerrar los ojos para ver de lejos es un signo típico.} y se corrige con lentes {divergentes|convergentes|bifocales::Hay que separar los rayos para que el foco llegue más atrás.}. En la hipermetropía, en cambio, el ojo es corto y hay dificultad para la visión {cercana|lejana|nocturna::Aquí cuesta leer y aparece fatiga ocular.}. {El astigmatismo|El estrabismo|El daltonismo::La córnea o el cristalino tienen una curvatura desigual.} se debe a una curvatura irregular y se corrige con lentes cilíndricas o tóricas. La presbicia aparece con {la edad|la exposición al sol|una infección::El cristalino pierde elasticidad con los años.} porque disminuye la capacidad {de acomodación|de refracción de la córnea|de producir lágrimas::Es la capacidad del cristalino de enfocar de cerca.}.',
+  },
+  {
+    title: 'Cataratas, glaucoma y otras alteraciones',
+    body: 'La catarata es la opacificación del {cristalino|humor vítreo|disco óptico::Es la lente que pierde transparencia.}, habitualmente relacionada con la edad; provoca visión turbia y deslumbramiento, y se trata con {cirugía de sustitución del cristalino|colirios hipotensores|lentes divergentes::Es el tratamiento quirúrgico cuando está indicado.}. En el glaucoma se lesiona el {nervio óptico|cristalino|tímpano::Es la estructura que sale por el disco óptico.}, a menudo con una presión intraocular {elevada|baja|nula::Los colirios del tratamiento la hacen bajar.}. Al principio suele ser {asintomático|muy doloroso|muy evidente::Por eso es importante la revisión periódica.} y después aparece una pérdida progresiva del campo visual. En el estrabismo los ojos no mantienen una {alineación|transparencia|curvatura::Se ve la desviación de un ojo.} adecuada y a veces hay diplopía. El daltonismo es una alteración de los fotopigmentos de los {conos|bastones|células ciliadas::Son los fotorreceptores del color.}, a menudo hereditaria. La degeneración macular afecta sobre todo a la visión {central|periférica|nocturna::La mácula está en el centro de la retina.}.',
+  },
+  {
+    title: 'Trastornos de la audición',
+    body: 'La hipoacusia de {transmisión|neurosensorial|vestibular::El problema es conducir el sonido por el oído externo o medio.} se produce por una obstrucción o alteración del oído externo o medio: la persona nota el oído tapado. La hipoacusia neurosensorial se debe a un daño {coclear|del tímpano|del pabellón auricular::Afecta al oído interno o al nervio auditivo.} o del nervio auditivo; si aparece de forma {súbita|progresiva|simétrica::En este caso la tabla dice «valoración urgente».} requiere una valoración urgente. Se puede tratar con {audífonos|colirios|lentes de contacto::Amplifican el sonido; en casos indicados, implantes.} o implantes. La otitis media es una inflamación o infección del oído {medio|externo|interno::Es donde están los huesecillos.} que causa {otalgia|diplopía|anosmia::Es el dolor de oído.}, fiebre y a veces hipoacusia. El tapón de cerumen es una acumulación de cerumen en el {conducto auditivo externo|vestíbulo|conducto semicircular::Es donde se produce y se acumula el cerumen.} y se trata con {cerumenolíticos|antibióticos|gafas de cerca::Son productos que deshacen el cerumen.} o con extracción profesional.',
+  },
+  {
+    title: 'Vértigo y aplicación en la farmacia',
+    body: 'El vértigo es la sensación de {movimiento|presión|picor::Parece que uno mismo o el entorno giran.} propio o del entorno. Se debe a una alteración del sistema {vestibular|auditivo externo|lagrimal::Conductos semicirculares, utrículo y sáculo.} y puede causar sensación de giro, {náuseas|fiebre alta|visión de colores::Es un síntoma digestivo que lo acompaña a menudo.} y desequilibrio. El tratamiento depende de la causa; en el VPPB se hacen {maniobras|cirugías de cataratas|audífonos::Se hacen con movimientos de la cabeza.}. En la farmacia hay que recordar que algunos fármacos son ototóxicos: pueden afectar a la audición o {al equilibrio|al olfato|al gusto::El oído interno también tiene sus receptores.}. En el glaucoma, los colirios para reducir la presión ocular se utilizan según prescripción, y la pauta y la {técnica de uso|medida del envase|marca comercial::Cómo se aplica la gota en el ojo.} importan.',
+  },
+];
+
+export const QUIZ = { ca: QUIZ_CA, es: QUIZ_ES };
+export const CLOZE = { ca: CLOZE_CA, es: CLOZE_ES };

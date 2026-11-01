@@ -7,7 +7,7 @@ const q=new URLSearchParams(location.search), kind=q.get('k')||'ull';
 const h=document.getElementById('h'); const V=mountViewer(h,kind,{fitWidth:+(q.get('fw')||1),fitHeight:+(q.get('fh')||1)});
 await V.ready;
 if(q.get('az')){ const t=V.camera.position.clone(); }
-const els=(q.get('nl')?[]:MODELS[kind].targets).map(t=>{const d=document.createElement('div');d.className='d';const l=document.createElement('div');l.className='l';l.textContent=t.name;h.append(d,l);return [t,d,l]});
+const els=(q.get('nl')?[]:MODELS[kind].targets).map(t=>{const d=document.createElement('div');d.className='d';const l=document.createElement('div');l.className='l';l.textContent=t.name.ca;h.append(d,l);return [t,d,l]});
 V.onFrame(()=>els.forEach(([t,d,l])=>{const p=V.project(t.id);d.style.left=l.style.left=p.x+'px';d.style.top=l.style.top=p.y+'px';d.classList.toggle('h',p.hidden);}));
 window.V=V; window.done=true;
 </script></body></html>
